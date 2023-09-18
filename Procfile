@@ -1,1 +1,1 @@
-web: gunicorn numberplate.wsgi
+web: gunicorn setup.wsgi
