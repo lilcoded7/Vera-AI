@@ -147,7 +147,7 @@ def monitor_energy(request):
     # Create a context dictionary with the data to pass to the template
     context = {
         'timestamp': current_data['timestamp'].strftime('%Y-%m-%d %H:%M:%S'),
-        'is_anomaly': is_anomaly,  # Convert to a string
+        'is_anomaly': is_anomaly, 
         'data': current_data,
         'graph_data': plot_data,
     }
@@ -157,26 +157,18 @@ def monitor_energy(request):
 
 
 def energy_optimization(request):
-    # Load the historical combined data Excel file
     df = pd.read_excel('veraai.xlsx')
 
-    # Select relevant features for clustering
     features = ['temperature', 'humidity', 'occupancy', 'energy_cost']
 
-    # Standardize the feature values
     scaler = StandardScaler()
     X = scaler.fit_transform(df[features])
 
-    # Apply PCA to reduce dimensionality
     pca = PCA(n_components=2)
     X_pca = pca.fit_transform(X)
-
-    # Use K-Means clustering to identify clusters
-    num_clusters = 3  # You can adjust the number of clusters
+    num_clusters = 3  
     kmeans = KMeans(n_clusters=num_clusters, random_state=42)
     df['cluster'] = kmeans.fit_predict(X_pca)
-
-    # Analyze the clusters to provide energy optimization recommendations
     recommendations = []
 
     for cluster_id in range(num_clusters):
@@ -186,21 +178,14 @@ def energy_optimization(request):
         recommendation += f"Average Energy Cost: ${avg_energy_cost:.2f}"
         recommendations.append(recommendation)
 
-    # Simulate occupancy detection (replace this with real-time data)
-    current_occupancy = "Occupied"  # You can change this based on occupancy data
-
-    # Determine system status based on occupancy
+    current_occupancy = "Occupied"  
     system_status = "Optimized" if current_occupancy == "Occupied" else "Optimizing"
-
-    # Create a bar plot of cluster-wise energy costs
     plt.figure(figsize=(10, 6))
     plt.bar(range(num_clusters), [cluster_data['energy_cost'].mean() for cluster_id, cluster_data in df.groupby('cluster')])
     plt.xticks(range(num_clusters), [f'Cluster {cluster_id + 1}' for cluster_id in range(num_clusters)])
     plt.xlabel('Cluster')
     plt.ylabel('Average Energy Cost')
     plt.title('Energy Cost by Cluster')
-
-    # Save the plot to a BytesIO object
     buffer = BytesIO()
     plt.savefig(buffer, format='png')
     buffer.seek(0)
@@ -218,38 +203,22 @@ def energy_optimization(request):
 
 
 def demand_response(request):
-    # Load the historical combined data Excel file
     df = pd.read_excel('veraai.xlsx')
-
-    # Feature engineering: Extract relevant features from the timestamp
     df['timestamp'] = pd.to_datetime(df['timestamp'])
-
-    # Assuming 'hour_of_day' is available in your data, you can use it to identify peak demand periods
-    # Modify this part based on your data and criteria for peak demand detection
-    peak_demand_hours = [16, 17, 18]  # Example: Peak demand hours from 4 PM to 6 PM
-
-    # Get the current hour to determine if it's a peak demand period
+    peak_demand_hours = [16, 17, 18]  
     current_hour = datetime.now().hour
-
-    # Determine if it's a peak demand period
     is_peak_demand = current_hour in peak_demand_hours
-
-    # Create dynamic messages based on the current situation
     if is_peak_demand:
         message = f"It's a peak demand period. The AI is automatically reducing energy consumption."
         action_message = "Implement energy reduction actions here."
     else:
         message = f"It's not a peak demand period. No action is required."
         action_message = "No energy reduction actions are needed at this time."
-
-    # Create a bar plot to visualize the historical energy consumption
     plt.figure(figsize=(10, 6))
     plt.plot(df['timestamp'], df['energy_consumption'], marker='o', linestyle='-')
     plt.xlabel('Timestamp')
     plt.ylabel('Energy Consumption')
     plt.title('Historical Energy Consumption')
-
-    # Save the plot to a BytesIO object
     buffer = BytesIO()
     plt.savefig(buffer, format='png')
     buffer.seek(0)
@@ -272,21 +241,16 @@ def demand_response(request):
 
 
 def adjust_hvac(request):
-    # Load the historical data and weather forecast data
     historical_data = pd.read_excel('veraai.xlsx')
     weather_forecast = {
-        'temperature': 28,  # Replace with actual temperature from forecasts
-        'humidity': 60,     # Replace with actual humidity from forecasts
+        'temperature': 28, 
+        'humidity': 60,
     }
-
-    # Adjust HVAC based on weather conditions
     hvac_adjustment = "Optimize"
     if weather_forecast['temperature'] > 30:
         hvac_adjustment = "Cooling Mode"
     elif weather_forecast['temperature'] < 10:
         hvac_adjustment = "Heating Mode"
-
-    # Create a plot
     plt.figure(figsize=(10, 6))
     plt.plot(historical_data['timestamp'], historical_data['temperature'], label='Temperature (°C)', color='blue')
     plt.axhline(y=weather_forecast['temperature'], color='red', linestyle='--', label='Weather Forecast')
@@ -296,18 +260,12 @@ def adjust_hvac(request):
     plt.xticks(rotation=45)
     plt.grid(True)
     plt.legend()
-
-    # Save the plot to a BytesIO object
     buffer = BytesIO()
     plt.savefig(buffer, format='png')
     buffer.seek(0)
     plot_data = base64.b64encode(buffer.read()).decode()
     buffer.close()
-
-    # Prepare historical data for rendering
-    historical_data['hvac_adjustment'] = hvac_adjustment  # Add HVAC adjustment to historical data
-
-    # Render the template with data
+    historical_data['hvac_adjustment'] = hvac_adjustment
     context = {
         'hvac_adjustment': hvac_adjustment,
         'plot_data': plot_data,
