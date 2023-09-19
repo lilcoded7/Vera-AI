@@ -1,19 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Energy Consumption Prediction</title>
+</head>
+<body>
+    <h1>Energy Consumption Prediction</h1>
 
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Predict</button>
+    </form>
 
-{% block content %}
-<div class="container mx-auto mt-6">
-    <h1 class="text-2xl font-semibold mb-4">Demand Response</h1>
-
-    <div class="bg-white p-4 rounded-lg shadow">
-        <h2 class="text-xl font-semibold my-4">Current Status</h2>
-        <p><strong>Current Hour:</strong> {{ current_hour }}</p>
-        <p><strong>Status:</strong> {{ message }}</p>
-
-        <h2 class="text-xl font-semibold my-4">Actions</h2>
-        <p>{{ action_message }}</p>
-
-        <h2 class="text-xl font-semibold my-4">Historical Energy Consumption</h2>
-        <img src="data:image/png;base64,{{ plot_data }}" alt="Historical Energy Consumption">
-    </div>
-</div>
-{% endblock %}
+    {% if energy_prediction is not None %}
+        <h2>Predicted Energy Consumption: {{ energy_prediction }} ({{ consumption_category }})</h2>
+        {% if graph_data %}
+            <div>
+                <h2>Energy Consumption Graph</h2>
+                <img src="data:image/png;base64,{{ graph_data }}" alt="Energy Consumption Graph">
+            </div>
+        {% endif %}
+    {% elif form.submitted %}
+        <p>Invalid timestamp or timestamp not found in the historical data.</p>
+    {% endif %}
+</body>
+</html>

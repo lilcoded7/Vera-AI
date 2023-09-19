@@ -76,7 +76,6 @@ def predict_energy_for_selected_timestamp(selected_timestamp):
     return energy_prediction, consumption_category, plot_data
 
 def home(request):
-    
     form = TimestampForm(request.POST or None)
     energy_prediction = None
     consumption_category = None
@@ -85,6 +84,7 @@ def home(request):
     if form.is_valid():
         selected_timestamp = form.cleaned_data['timestamp']
         energy_prediction, consumption_category, graph_data = predict_energy_for_selected_timestamp(selected_timestamp)
+
     form = TimestampForm()
     context = {
         'form': form,

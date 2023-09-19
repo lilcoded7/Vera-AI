@@ -216,7 +216,8 @@
         {% csrf_token %}
         <div class="notification blue">
         <div class="flex flex-col md:flex-row items-center justify-between space-y-3 md:space-y-0">
-            <div class="field">
+            {{form.timestamp.label}}
+            <div style="color: black;" class="field">
                 {{form.timestamp}}
             </div>
             <button type="submit" class="button small textual --jb-notification-dismiss">Predict</button>
