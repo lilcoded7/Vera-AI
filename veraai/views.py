@@ -5,6 +5,8 @@ from .forms import TimestampForm
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import IsolationForest
+from veraai.models import CscOrExcelUpload
+from .models import CscOrExcelUpload, EnergyData
 import matplotlib.pyplot as plt
 from django.http import JsonResponse
 from sklearn.cluster import KMeans
@@ -14,6 +16,7 @@ import base64
 from datetime import datetime
 from django.http import HttpResponse
 from io import BytesIO
+import requests 
 
 
 
@@ -92,16 +95,176 @@ def home(request):
         'consumption_category': consumption_category,
         'graph_data': graph_data,
     }
-    return render(request, 'home.html', context)
+    return render(request, 'home.html')
 
+
+
+
+def optimize_energy(data):
+    # Simplified energy optimization logic (e.g., control lighting, HVAC, and power outlets)
+    occupancy_column = 'Occupancy(W/m2)'
+    lighting_column = 'General Lighting(W/m2)'
+    hvac_column = 'Cooling (Electricity)(W/m2)'
+
+    # Example: Turn off lights if no occupancy
+    data[lighting_column] = data.apply(lambda row: 0 if row[occupancy_column] == 0 else row[lighting_column], axis=1)
+
+    # Example: Adjust HVAC based on room temperature
+    temperature_column = 'Air Temperature(°C)'
+    data[hvac_column] = data.apply(lambda row: row[hvac_column] - 10 if row[temperature_column] > 25 else row[hvac_column], axis=1)
+
+    return data
 
 def index(request):
-    return render(request, 'index.html')
+    file_data = CscOrExcelUpload.objects.get(id=1)
 
+    if file_data.upload_file.name.endswith(('.csv', '.xls', '.xlsx')):
+        df = pd.read_csv(file_data.upload_file) if file_data.upload_file.name.endswith('.csv') else pd.read_excel(file_data.upload_file)
+
+        # Apply energy optimization logic to the data
+        optimized_df = optimize_energy(df.copy())
+
+        # Create a line plot to visualize the results
+        plt.plot(df['Date/Time'], optimized_df['General Lighting(W/m2)'], label='Optimized Lighting(W/m2)')
+        plt.plot(df['Date/Time'], optimized_df['Cooling (Electricity)(W/m2)'], label='Optimized HVAC(W/m2)')
+        plt.xlabel('Date/Time')
+        plt.ylabel('Energy Consumption(W/m2)')
+        plt.title('Energy Optimization Results')
+        plt.xticks(rotation=45)
+        plt.legend()
+        
+        # Save the plot to a BytesIO object
+        img = BytesIO()
+        plt.savefig(img, format='png')
+        img.seek(0)
+        img_base64 = base64.b64encode(img.read()).decode()
+
+        # Pass the plot as a base64-encoded image to the template
+        context = {
+            'plot_image': f'data:image/png;base64,{img_base64}',
+            'data_table': optimized_df.to_html(classes='table table-striped table-bordered table-hover')
+        }
+
+        return render(request, 'index.html', context)
+
+    else:
+        print("Unsupported file format")
+        return HttpResponse("Unsupported file format")
+
+
+
+import pandas as pd
+from django.shortcuts import render
+from .models import CscOrExcelUpload
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
+import matplotlib.pyplot as plt
+from io import BytesIO
+import base64
+
+# Sample data structure to represent zones and their occupancy
+zone_data = {
+    'zone1': {
+        'occupancy_column': 'Occupancy(W/m2)',
+        'lighting_column': 'General Lighting(W/m2)',
+        'power_outlet_column': 'System Pumps(W/m2)',
+        'hvac_column': 'Cooling (Electricity)(W/m2)'
+    },
+    'zone2': {
+        'occupancy_column': 'Occupancy(W/m2)',
+        'lighting_column': 'General Lighting(W/m2)',
+        'power_outlet_column': 'System Pumps(W/m2)',
+        'hvac_column': 'Cooling (Electricity)(W/m2)'
+    },
+    # Add more zones as needed
+}
+
+# Replace with the actual BMS API endpoint
+BMS_API_URL = 'https://veraenergyconsumptionai.up.railway.app/api/bms'
+
+def connect_to_bms(office_data):
+    try:
+        # Make a request to the BMS API to get power distribution information
+        response = requests.get(BMS_API_URL)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        bms_data = response.json()
+
+        # Update the office data with BMS data (simplified example)
+        office_data.update(bms_data)
+
+        return office_data
+
+    except requests.exceptions.RequestException as e:
+        # Handle connection errors, log, or provide a response to the user
+        print(f"Failed to connect to the BMS API: {e}")
+        return office_data  # Return the original data if there's a connection issue
+
+def optimize_energy_bms(data):
+    for zone, columns in zone_data.items():
+        occupancy_column = columns['occupancy_column']
+        lighting_column = columns['lighting_column']
+        power_outlet_column = columns['power_outlet_column']
+        hvac_column = columns['hvac_column']
+
+        # Example: Turn off lights if no occupancy
+        data[lighting_column] = data.apply(lambda row: 0 if row[occupancy_column] == 0 else row[lighting_column], axis=1)
+
+        # Example: Adjust HVAC based on room temperature
+        data[hvac_column] = data.apply(lambda row: row[hvac_column] - 10 if row['Air Temperature(°C)'] > 25 else row[hvac_column], axis=1)
+
+        # Example: Control power outlets based on occupancy
+        data[power_outlet_column] = data.apply(lambda row: 0 if row[occupancy_column] == 0 else row[power_outlet_column], axis=1)
+
+    return data
+
+def bms_optimization(request):
+    file_data = CscOrExcelUpload.objects.get(id=1)
+
+    if file_data.upload_file.name.endswith(('.csv', '.xls', '.xlsx')):
+        df = pd.read_csv(file_data.upload_file) if file_data.upload_file.name.endswith('.csv') else pd.read_excel(file_data.upload_file)
+
+        # Connect to the BMS to get power distribution information
+        df = connect_to_bms(df)
+
+        # Apply energy optimization logic to the data
+        optimized_df = optimize_energy_bms(df.copy())
+
+        # Create a line plot to visualize the results
+        plt.plot(df['Date/Time'], optimized_df['General Lighting(W/m2)'], label='Optimized Lighting(W/m2)')
+        plt.xlabel('Date/Time')
+        plt.ylabel('Energy Consumption(W/m2)')
+        plt.title('Energy Optimization Results')
+        plt.xticks(rotation=45)
+        plt.legend()
+
+        # Save the plot to a BytesIO object
+        img = BytesIO()
+        plt.savefig(img, format='png')
+        img.seek(0)
+        img_base64 = base64.b64encode(img.read()).decode()
+
+        # Pass the plot as a base64-encoded image to the template
+        context = {
+            'plot_image': f'data:image/png;base64,{img_base64}',
+            'data_table': optimized_df.to_html(classes='table table-striped table-bordered table-hover')
+        }
+
+        return render(request, 'bms_optimization.html', context)
+    else:
+        print("Unsupported file format")
+        return HttpResponse("Unsupported file format")
+    
 
 def monitor_energy(request):
     # Load the historical combined data Excel file
-    df = pd.read_excel('veraai.xlsx')
+    file_data = CscOrExcelUpload.objects.get(id=1)
+    if file_data.upload_file.name.endswith('.csv'):
+        df = pd.read_csv(file_data.upload_file)
+
+    elif file_data.upload_file.name.endswith(('.xls', '.xlsx')):
+        df = pd.read_excel(file_data.upload_file)
+    else:
+        print("Unsupported file format")
 
     # Assuming the data is sorted by timestamp in descending order, get the latest data point
     latest_data = df.iloc[0]
@@ -152,7 +315,7 @@ def monitor_energy(request):
         'graph_data': plot_data,
     }
     
-    return render(request, 'monitor_energy.html', context)
+    return render(request, 'monitor_energy.html')
 
 
 
@@ -199,7 +362,7 @@ def energy_optimization(request):
         'plot_data': plot_data,
     }
 
-    return render(request, 'energy_optimization.html', context)
+    return render(request, 'energy_optimization.html')
 
 
 def demand_response(request):
@@ -233,7 +396,7 @@ def demand_response(request):
         'plot_data': plot_data,
     }
 
-    return render(request, 'demand_response.html', context)
+    return render(request, 'demand_response.html')
 
 
 
@@ -271,4 +434,4 @@ def adjust_hvac(request):
         'plot_data': plot_data,
         'historical_data': historical_data.iterrows(),
     }
-    return render(request, 'adjust_hvac.html', context)
+    return render(request, 'adjust_hvac.html')

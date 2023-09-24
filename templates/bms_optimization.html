@@ -1,3 +1,6 @@
+
+
+
 {% load static %} 
 <!DOCTYPE html>
 <html lang="en" class="">
@@ -111,13 +114,13 @@
           </a>
         </li>
         <li>
-          <a href="{% url 'bms-optimization' %}" class="has-icon">
-            <span class="icon"><i class="mdi mdi-github-circle"></i></span>
-            <span class="menu-item-label">BMS Energy Optimization</span>
-          </a>
-        </li>
+            <a href="{% url 'bms-optimization' %}" class="has-icon">
+              <span class="icon"><i class="mdi mdi-github-circle"></i></span>
+              <span class="menu-item-label">BMS Energy Optimization</span>
+            </a>
+          </li>
 
-      <li>
+        <li>
           <a href="{% url 'demand-response-status' %}" class="has-icon">
             <span class="icon"><i class="mdi mdi-github-circle"></i></span>
             <span class="menu-item-label">Demand Response</span>
@@ -135,11 +138,10 @@
   </aside>
 
 
-
 <section class="is-hero-bar">
   <div class="flex flex-col md:flex-row items-center justify-between space-y-6 md:space-y-0">
     <h1 class="title">
-        Demand Response | Current Status
+      Energy Optimization Results
     </h1>
     
   </div>
@@ -151,7 +153,7 @@
         <div class="card-content">
           <div class="flex items-center justify-between">
             <div class="widget-label">
-                <p>Current Hour: {{ current_hour }}</p>
+                <p><strong>Energy Consumption:</strong></p>
                 
               
             </div>
@@ -163,7 +165,7 @@
         <div class="card-content">
           <div class="flex items-center justify-between">
             <div class="widget-label">
-                <p>Status: {{ message }}</p>
+                <p><strong>Cost:</strong> </p>
               
             </div>
             <span class="icon widget-icon text-blue-500"><i class="mdi mdi-cart-outline mdi-48px"></i></span>
@@ -176,7 +178,7 @@
           <div class="flex items-center justify-between">
             <div class="widget-label">
               <h3>
-                Actions: {{ action_message }}
+                live
               </h3>
               
             </div>
@@ -190,7 +192,7 @@
       <header class="card-header">
         <p class="card-header-title">
           <span class="icon"><i class="mdi mdi-finance"></i></span>
-          Historical Energy Consumption
+          Connect BMS_API = 'https://veraenergyconsumptionai.up.railway.app/api/bms'
         </p>
         <a href="#" class="card-header-icon">
           <span class="icon"><i class="mdi mdi-reload"></i></span>
@@ -198,12 +200,17 @@
       </header>
       <div class="card-content">
         <div class="chart-area">
-           
-            <img src="data:image/png;base64,{{ plot_data }}" alt="Historical Energy Consumption">
+          <img src="{{ plot_image }}" alt="Energy Optimization Graph">
         </div>
       </div>
     </div>
 
+    <h2>Data Table</h2>
+    {% if data_table %}
+        {{ data_table|safe }}
+    {% else %}
+        <p>Data not available.</p>
+    {% endif %}
 
     
   </section>
@@ -235,7 +242,7 @@
 <!-- Scripts below are for demo only -->
 <script type="text/javascript" src="{% static 'js/main.min.js' %}?v=1628755089081"></script>
 
-<script type="text/javascript" src="{% static 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js' %}/2.8.0/Chart.min.js' %}"></script>
+<script type="text/javascript" src="{% static 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js' %}/2.8.0/Chart.min.js"></script>
 <script type="text/javascript" src="{% static 'js/chart.sample.min.js' %}"></script>
 
 
