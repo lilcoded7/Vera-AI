@@ -7,6 +7,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import IsolationForest
 from veraai.models import CscOrExcelUpload
 from .models import CscOrExcelUpload, EnergyData
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 from django.http import JsonResponse
 from sklearn.cluster import KMeans
@@ -151,16 +153,6 @@ def index(request):
         print("Unsupported file format")
         return HttpResponse("Unsupported file format")
 
-
-
-import pandas as pd
-from django.shortcuts import render
-from .models import CscOrExcelUpload
-import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend
-import matplotlib.pyplot as plt
-from io import BytesIO
-import base64
 
 # Sample data structure to represent zones and their occupancy
 zone_data = {
