@@ -43,7 +43,11 @@ INSTALLED_APPS = [
 
     'rest_framework',
 
+    'account'
+
 ]
+
+LOGIN_URL = '/account/login/' 
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

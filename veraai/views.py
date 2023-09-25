@@ -14,17 +14,18 @@ import matplotlib.pyplot as plt
 from django.http import JsonResponse
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from django.contrib.auth.decorators import login_required
 from rest_framework.response import Response
 import io
 import base64
 from datetime import datetime
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
 from io import BytesIO
 import requests 
 
 
-
+@login_required
 def predict_energy_for_selected_timestamp(selected_timestamp):
     # Load the historical combined data Excel file
     df = pd.read_excel('veraai.xlsx')
@@ -83,6 +84,7 @@ def predict_energy_for_selected_timestamp(selected_timestamp):
 
     return energy_prediction, consumption_category, plot_data
 
+@login_required
 def home(request):
     form = TimestampForm(request.POST or None)
     energy_prediction = None
@@ -120,6 +122,8 @@ def optimize_energy(data):
 
     return data
 
+
+@login_required
 def index(request, pk):
     file_data = CsvOrExcelUpload.objects.get(id=pk)
 
@@ -174,13 +178,12 @@ zone_data = {
     # Add more zones as needed
 }
 
-# Replace with the actual BMS API endpoint
 
 
 class BMSApiView(generics.GenericAPIView):
     queryset = BMSAPI.objects.all()
     serializer_class = BMSAPISerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         # Get the data from the request
@@ -193,7 +196,7 @@ class BMSApiView(generics.GenericAPIView):
             if serializer.is_valid():
                 serializer.save()
                 Response({'message': 'BMS Connected'})
-                return redirect('bms-optimization', request.user.id)
+                return redirect('energy-optimization', request.user.id)
             else:
                 return Response({'message': 'Connection fail!'})
         else:
@@ -201,7 +204,7 @@ class BMSApiView(generics.GenericAPIView):
             if serializer.is_valid():
                 serializer.save()
                 Response({'message': 'BMS Updated'})
-                return redirect('bms-optimization', request.user.id)
+                return redirect('energy-optimization', request.user.id )
             else:
                 return Response({'message': 'Update failed!'})
 
@@ -211,7 +214,7 @@ class BMSApiView(generics.GenericAPIView):
 class CsvOrExcelUploadpiView(generics.GenericAPIView):
     queryset = CsvOrExcelUpload.objects.all()
     serializer_class = CsvOrExcelUploadSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     def post(self, request):
         data = request.data
         building_name = data.get('building_name')
@@ -222,7 +225,7 @@ class CsvOrExcelUploadpiView(generics.GenericAPIView):
             if serializer.is_valid():
                 serializer.save()
                 Response({'message': 'Upload created'})
-                return redirect('bms-optimization', request.user.id)
+                return redirect('energy-optimization', request.user.id)
             else:
                 return Response(serializer.errors, status=400)
         else:
@@ -230,29 +233,28 @@ class CsvOrExcelUploadpiView(generics.GenericAPIView):
             if serializer.is_valid():
                 serializer.save()
                 Response({'message': 'Upload updated'})
-                return redirect('bms-optimization', request.user.id)
+                return redirect('energy-optimization', request.user.id)
             else:
                 return Response(serializer.errors, status=400)
         return Response({'message': 'Unknown error occurred'})
 
 
-def connect_to_bms(office_data, pk):
-    BMS_API_URL = BMSAPI.objects.get(id=pk)
+def connect_to_bms(office_data, request, pk):
     try:
-        # Make a request to the BMS API to get power distribution information
+        BMS_API_URL = BMSAPI.objects.get(id=pk, user=request.user)
+    except BMSAPI.DoesNotExist:
+        return redirect('bms-api')  # Redirect to the 'bms-api' URL when the API is not found
+
+    try:
         response = requests.get(BMS_API_URL.bms_api_url)
-        response.raise_for_status()  # Raise an exception for HTTP errors
+        response.raise_for_status()
         bms_data = response.json()
-
-        # Update the office data with BMS data (simplified example)
         office_data.update(bms_data)
-
         return office_data
-
     except requests.exceptions.RequestException as e:
-        # Handle connection errors, log, or provide a response to the user
-        print(f"Failed to connect to the BMS API: {e}")
-        return office_data  # Return the original data if there's a connection issue
+        return redirect('bms-api')
+
+
 
 def optimize_energy_bms(data):
     for zone, columns in zone_data.items():
@@ -272,14 +274,15 @@ def optimize_energy_bms(data):
 
     return data
 
+
+@login_required
 def bms_optimization(request, pk):
-    file_data = CsvOrExcelUpload.objects.get(id=pk)
+    user = request.user
+    file_data = CsvOrExcelUpload.objects.get(id=pk, user=user)
     if file_data.upload_file.name.endswith(('.csv', '.xls', '.xlsx')):
         df = pd.read_csv(file_data.upload_file) if file_data.upload_file.name.endswith('.csv') else pd.read_excel(file_data.upload_file)
-
         # Connect to the BMS to get power distribution information
-        df = connect_to_bms(df, pk)
-
+        df = connect_to_bms(df, request, pk)
         # Apply energy optimization logic to the data
         optimized_df = optimize_energy_bms(df.copy())
 
@@ -308,7 +311,7 @@ def bms_optimization(request, pk):
         print("Unsupported file format")
         return HttpResponse("Unsupported file format")
     
-
+@login_required
 def monitor_energy(request):
     # Load the historical combined data Excel file
     file_data = CsvOrExcelUpload.objects.get(id=1)
@@ -372,7 +375,7 @@ def monitor_energy(request):
     return render(request, 'monitor_energy.html')
 
 
-
+@login_required
 def energy_optimization(request):
     df = pd.read_excel('veraai.xlsx')
 
@@ -418,7 +421,7 @@ def energy_optimization(request):
 
     return render(request, 'energy_optimization.html')
 
-
+@login_required
 def demand_response(request):
     df = pd.read_excel('veraai.xlsx')
     df['timestamp'] = pd.to_datetime(df['timestamp'])
@@ -456,7 +459,7 @@ def demand_response(request):
 
 
 
-
+@login_required
 def adjust_hvac(request):
     historical_data = pd.read_excel('veraai.xlsx')
     weather_forecast = {
