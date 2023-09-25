@@ -1,18 +1,21 @@
 import pandas as pd
 import numpy as np 
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from .forms import TimestampForm
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import IsolationForest
-from veraai.models import CscOrExcelUpload
-from .models import CscOrExcelUpload, EnergyData
+from .models import CsvOrExcelUpload, EnergyData, BMSAPI
+from rest_framework import generics, mixins, viewsets
+from .serializers import *
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 from django.http import JsonResponse
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
 import io
 import base64
 from datetime import datetime
@@ -117,8 +120,8 @@ def optimize_energy(data):
 
     return data
 
-def index(request):
-    file_data = CscOrExcelUpload.objects.get(id=1)
+def index(request, pk):
+    file_data = CsvOrExcelUpload.objects.get(id=pk)
 
     if file_data.upload_file.name.endswith(('.csv', '.xls', '.xlsx')):
         df = pd.read_csv(file_data.upload_file) if file_data.upload_file.name.endswith('.csv') else pd.read_excel(file_data.upload_file)
@@ -172,12 +175,72 @@ zone_data = {
 }
 
 # Replace with the actual BMS API endpoint
-BMS_API_URL = 'https://veraenergyconsumptionai.up.railway.app/api/bms'
 
-def connect_to_bms(office_data):
+
+class BMSApiView(generics.GenericAPIView):
+    queryset = BMSAPI.objects.all()
+    serializer_class = BMSAPISerializer
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        # Get the data from the request
+        data = request.data
+        bms_api_url = data.get('bms_api_url')
+        try:
+            bms_api = BMSAPI.objects.get(bms_api_url=bms_api_url)
+        except BMSAPI.DoesNotExist:
+            serializer = self.serializer_class(data=data)
+            if serializer.is_valid():
+                serializer.save()
+                Response({'message': 'BMS Connected'})
+                return redirect('bms-optimization', request.user.id)
+            else:
+                return Response({'message': 'Connection fail!'})
+        else:
+            serializer = self.serializer_class(instance=bms_api, data=data)
+            if serializer.is_valid():
+                serializer.save()
+                Response({'message': 'BMS Updated'})
+                return redirect('bms-optimization', request.user.id)
+            else:
+                return Response({'message': 'Update failed!'})
+
+        return Response({'message': 'Unknown error occurred'})
+
+
+class CsvOrExcelUploadpiView(generics.GenericAPIView):
+    queryset = CsvOrExcelUpload.objects.all()
+    serializer_class = CsvOrExcelUploadSerializer
+    permission_classes = [AllowAny]
+    def post(self, request):
+        data = request.data
+        building_name = data.get('building_name')
+        try:
+            csv_upload = CsvOrExcelUpload.objects.get(building_name=building_name)
+        except CsvOrExcelUpload.DoesNotExist:
+            serializer = self.serializer_class(data=data)
+            if serializer.is_valid():
+                serializer.save()
+                Response({'message': 'Upload created'})
+                return redirect('bms-optimization', request.user.id)
+            else:
+                return Response(serializer.errors, status=400)
+        else:
+            serializer = self.serializer_class(instance=csv_upload, data=data)
+            if serializer.is_valid():
+                serializer.save()
+                Response({'message': 'Upload updated'})
+                return redirect('bms-optimization', request.user.id)
+            else:
+                return Response(serializer.errors, status=400)
+        return Response({'message': 'Unknown error occurred'})
+
+
+def connect_to_bms(office_data, pk):
+    BMS_API_URL = BMSAPI.objects.get(id=pk)
     try:
         # Make a request to the BMS API to get power distribution information
-        response = requests.get(BMS_API_URL)
+        response = requests.get(BMS_API_URL.bms_api_url)
         response.raise_for_status()  # Raise an exception for HTTP errors
         bms_data = response.json()
 
@@ -209,14 +272,13 @@ def optimize_energy_bms(data):
 
     return data
 
-def bms_optimization(request):
-    file_data = CscOrExcelUpload.objects.get(id=1)
-
+def bms_optimization(request, pk):
+    file_data = CsvOrExcelUpload.objects.get(id=pk)
     if file_data.upload_file.name.endswith(('.csv', '.xls', '.xlsx')):
         df = pd.read_csv(file_data.upload_file) if file_data.upload_file.name.endswith('.csv') else pd.read_excel(file_data.upload_file)
 
         # Connect to the BMS to get power distribution information
-        df = connect_to_bms(df)
+        df = connect_to_bms(df, pk)
 
         # Apply energy optimization logic to the data
         optimized_df = optimize_energy_bms(df.copy())
@@ -249,7 +311,7 @@ def bms_optimization(request):
 
 def monitor_energy(request):
     # Load the historical combined data Excel file
-    file_data = CscOrExcelUpload.objects.get(id=1)
+    file_data = CsvOrExcelUpload.objects.get(id=1)
     if file_data.upload_file.name.endswith('.csv'):
         df = pd.read_csv(file_data.upload_file)
 

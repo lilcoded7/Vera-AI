@@ -2,13 +2,19 @@ from django.db import models
 
 # Create your models here.
 
-class CscOrExcelUpload(models.Model):
-    room_name = models.CharField(max_length=100)
+class CsvOrExcelUpload(models.Model):
+    building_name = models.CharField(max_length=100)
     upload_file = models.FileField()
 
     def __str__(self):
-        return self.room_name
+        return self.building_name
 
+
+class BMSAPI(models.Model):
+    bms_api_url = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.bms_api_url
 
 class EnergyData(models.Model):
     date_time = models.DateTimeField()

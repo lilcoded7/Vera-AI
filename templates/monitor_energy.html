@@ -88,48 +88,39 @@
     <div class="menu is-menu-main">
       <p class="menu-label">General</p>
       <ul class="menu-list">
-        <li class="active">
-          <a href="{% url 'home' %}">
-            <span class="icon"><i class="mdi mdi-desktop-mac"></i></span>
-            <span class="menu-item-label">Dashboard</span>
-          </a>
-        </li>
+        
+        <li>
+            <a href="{% url 'bms-api' %}" class="has-icon">
+              <span class="icon"><i class="mdi mdi-help-circle"></i></span>
+              <span class="menu-item-label">Add BMS Data</span>
+            </a>
+          </li>
       </ul>
       
       <ul class="menu-list">
         
         <li>
-          <a href="{% url 'anomalies' %}" class="has-icon">
+          <a href="{% url 'bms-api' %}" class="has-icon">
             <span class="icon"><i class="mdi mdi-help-circle"></i></span>
-            <span class="menu-item-label">Detect Anomalies</span>
+            <span class="menu-item-label">Connect BMS</span>
           </a>
         </li>
+
         <li>
-          <a href="{% url 'energy-optimization' %}" class="has-icon">
-            <span class="icon"><i class="mdi mdi-github-circle"></i></span>
-            <span class="menu-item-label">Energy Optimization</span>
-          </a>
-        </li>
-        <li>
-            <a href="{% url 'bms-optimization' %}" class="has-icon">
+            <a href="{% url 'bms-optimization' request.user.id %}" class="has-icon">
+
               <span class="icon"><i class="mdi mdi-github-circle"></i></span>
               <span class="menu-item-label">BMS Energy Optimization</span>
             </a>
           </li>
 
         <li>
-          <a href="{% url 'demand-response-status' %}" class="has-icon">
+          <a href="{% url 'energy-optimization' request.user.id %}" class="has-icon">
             <span class="icon"><i class="mdi mdi-github-circle"></i></span>
-            <span class="menu-item-label">Demand Response</span>
+            <span class="menu-item-label">BHVAC Adjustment</span>
           </a>
         </li>
-
-        <li>
-          <a href="{% url 'adjust_hvac' %}" class="has-icon">
-            <span class="icon"><i class="mdi mdi-github-circle"></i></span>
-            <span class="menu-item-label">HVAC Adjustment</span>
-          </a>
-        </li>
+        
       </ul>
     </div>
   </aside>
