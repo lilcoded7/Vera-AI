@@ -239,21 +239,31 @@ class CsvOrExcelUploadpiView(generics.GenericAPIView):
         return Response({'message': 'Unknown error occurred'})
 
 
+
 def connect_to_bms(office_data, request, pk):
     try:
         BMS_API_URL = BMSAPI.objects.get(id=pk, user=request.user)
-    except BMSAPI.DoesNotExist:
-        return redirect('bms-api')  # Redirect to the 'bms-api' URL when the API is not found
-
-    try:
         response = requests.get(BMS_API_URL.bms_api_url)
         response.raise_for_status()
         bms_data = response.json()
-        office_data.update(bms_data)
-        return office_data
-    except requests.exceptions.RequestException as e:
-        return redirect('bms-api')
+        
+        # Update office_data with BMS data
+        for key, value in bms_data.items():
+            office_data[key] = value
 
+        return office_data
+    except BMSAPI.DoesNotExist:
+        # Handle the case where the BMSAPI with the specified ID does not exist
+        print("BMSAPI does not exist.")
+    except requests.exceptions.RequestException as e:
+        # Handle any request-related errors
+        print(f"Request error: {str(e)}")
+    except Exception as e:
+        # Handle any other unexpected exceptions
+        print(f"An error occurred: {str(e)}")
+
+    # Return the original office_data (unchanged) or handle errors as needed
+    return office_data
 
 
 def optimize_energy_bms(data):
