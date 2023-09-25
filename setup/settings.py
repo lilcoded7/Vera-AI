@@ -88,6 +88,16 @@ CORS_ALLOW_ALL_ORIGINS = True
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://oems.up.railway.app",
+]
+
+CORS_ALLOWED_ORIGINS = [
+    "https://oems.up.railway.app",
+    
+]
+
+
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
