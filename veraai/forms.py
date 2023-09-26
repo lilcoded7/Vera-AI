@@ -1,9 +1,5 @@
 from django import forms
 
-class TimestampForm(forms.Form):
-    timestamp = forms.DateTimeField(
-        label='Enter a Future Timestamp (e.g., "2023-09-18 14:00:00")',
-        input_formats=['%Y-%m-%d %H:%M:%S'],
-        widget=forms.TextInput(attrs={'placeholder': 'YYYY-MM-DD HH:MM:SS', 'class': 'input'}),
-    )
-
+class FuturePredictionForm(forms.Form):
+    future_date = forms.DateField(label='Select a Future Date', widget=forms.DateInput(attrs={'type': 'date'}))
+    future_time = forms.TimeField(label='Select a Future Time', widget=forms.TimeInput(attrs={'type': 'time'}))

@@ -85,7 +85,7 @@
   <aside class="aside is-placed-left is-expanded">
     <div class="aside-tools">
       <div>
-       Vera<b class="font-black">| AI</b>
+       OEMS<b class="font-black">| AI</b>
       </div>
     </div>
     <div class="menu is-menu-main">
@@ -93,7 +93,7 @@
       <ul class="menu-list">
         
         <li>
-            <a href="{% url 'bms-api' %}" class="has-icon">
+            <a href="{% url 'upload-file' %}" class="has-icon">
               <span class="icon"><i class="mdi mdi-help-circle"></i></span>
               <span class="menu-item-label">Add BMS Data</span>
             </a>
@@ -110,15 +110,22 @@
         </li>
 
         <li>
-            <a href="{% url 'bms-optimization' request.user.id %}" class="has-icon">
+          <a href="##" class="has-icon">
+            <span class="icon"><i class="mdi mdi-help-circle"></i></span>
+            <span class="menu-item-label">Energy Prediction</span>
+          </a>
+        </li>
+
+        <li>
+            <a href="{% url 'bsm-lighting-optimization' request.user.id %}" class="has-icon">
 
               <span class="icon"><i class="mdi mdi-github-circle"></i></span>
-              <span class="menu-item-label">BMS Energy Optimization</span>
+              <span class="menu-item-label">BMS Lighting Optimization</span>
             </a>
           </li>
 
         <li>
-          <a href="{% url 'energy-optimization' request.user.id %}" class="has-icon">
+          <a href="{% url 'bms-optimization' request.user.id %}" class="has-icon">
             <span class="icon"><i class="mdi mdi-github-circle"></i></span>
             <span class="menu-item-label">BHVAC Adjustment</span>
           </a>
@@ -156,7 +163,7 @@
         <div class="card-content">
           <div class="flex items-center justify-between">
             <div class="widget-label">
-                <p><strong>Cost:</strong> </p>
+                <p><strong>Cost:</strong> ${{total_cost}} </p>
               
             </div>
             <span class="icon widget-icon text-blue-500"><i class="mdi mdi-cart-outline mdi-48px"></i></span>

@@ -1,15 +1,14 @@
 import pandas as pd
 import numpy as np 
 from django.shortcuts import render, redirect
-from .forms import TimestampForm
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import IsolationForest
-from .models import CsvOrExcelUpload, EnergyData, BMSAPI
+from .models import CsvOrExcelUpload, EnergyData, BMSSENSOR
 from rest_framework import generics, mixins, viewsets
 from .serializers import *
 import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend
+matplotlib.use('Agg') 
 import matplotlib.pyplot as plt
 from django.http import JsonResponse
 from sklearn.cluster import KMeans
@@ -23,86 +22,8 @@ from datetime import datetime
 from django.http import HttpResponse, Http404
 from io import BytesIO
 import requests 
+from .forms import FuturePredictionForm
 
-
-# @login_required
-# def predict_energy_for_selected_timestamp(selected_timestamp):
-#     # Load the historical combined data Excel file
-#     df = pd.read_excel('veraai.xlsx')
-
-#     # Feature engineering: Extract relevant features from the timestamp
-#     df['timestamp'] = pd.to_datetime(df['timestamp'])
-
-#     # Select relevant features and target variable
-#     X = df[['temperature', 'humidity', 'occupancy', 'energy_cost']]
-#     y = df['energy_consumption']
-
-#     # Standardize the feature values
-#     scaler = StandardScaler()
-#     X = scaler.fit_transform(X)
-
-#     # Initialize and train a linear regression model
-#     model = LinearRegression()
-#     model.fit(X, y)
-
-#     # Predict energy consumption for the selected timestamp
-#     selected_timestamp = pd.to_datetime(selected_timestamp)
-#     selected_data = pd.DataFrame({'timestamp': [selected_timestamp]})
-
-#     # Select relevant features for the selected timestamp
-#     X_selected = selected_data.assign(temperature=0, humidity=0, occupancy=0, energy_cost=0)[['temperature', 'humidity', 'occupancy', 'energy_cost']]
-
-#     # Standardize the selected data (use the same scaler as before)
-#     X_selected = scaler.transform(X_selected)
-
-#     # Make predictions for energy consumption at the selected timestamp
-#     energy_prediction = model.predict(X_selected)[0]
-
-#     # Determine whether energy consumption is high or low based on a threshold (you can adjust this threshold)
-#     threshold = 50  # You can adjust this threshold based on your data
-#     consumption_category = "High" if energy_prediction > threshold else "Low"
-
-#     # Generate the energy consumption graph
-#     plt.figure(figsize=(10, 6))
-#     # Modify this section to plot the graph based on your data (e.g., actual consumption data here).
-#     # For example, you can plot historical consumption data here.
-#     plt.plot([selected_timestamp], [energy_prediction], marker='o', linestyle='-', color='b', label=f'Predicted Energy Consumption ({consumption_category})')
-#     plt.axhline(y=50, color='r', linestyle='--', label='Threshold (High/Low)')
-#     plt.title('Predicted Energy Consumption and Threshold')
-#     plt.xlabel('Timestamp')
-#     plt.ylabel('Energy Consumption')
-#     plt.xticks(rotation=45)
-#     plt.grid(True)
-#     plt.legend()
-    
-#     # Save the graph to a BytesIO object
-#     buffer = io.BytesIO()
-#     plt.savefig(buffer, format='png')
-#     buffer.seek(0)
-#     plot_data = base64.b64encode(buffer.read()).decode()
-#     buffer.close()
-
-#     return energy_prediction, consumption_category, plot_data
-
-# @login_required
-# def home(request):
-#     form = TimestampForm(request.POST or None)
-#     energy_prediction = None
-#     consumption_category = None
-#     graph_data = None
-
-#     if form.is_valid():
-#         selected_timestamp = form.cleaned_data['timestamp']
-#         energy_prediction, consumption_category, graph_data = predict_energy_for_selected_timestamp(selected_timestamp)
-
-#     form = TimestampForm()
-#     context = {
-#         'form': form,
-#         'energy_prediction': energy_prediction,
-#         'consumption_category': consumption_category,
-#         'graph_data': graph_data,
-#     }
-#     return render(request, 'home.html')
 
 
 
@@ -123,42 +44,65 @@ def optimize_energy(data):
     return data
 
 
-@login_required
-def index(request, pk):
-    file_data = CsvOrExcelUpload.objects.get(id=pk)
 
-    if file_data.upload_file.name.endswith(('.csv', '.xls', '.xlsx')):
-        df = pd.read_csv(file_data.upload_file) if file_data.upload_file.name.endswith('.csv') else pd.read_excel(file_data.upload_file)
+class BMSApiView(generics.GenericAPIView):
+    queryset = BMSSENSOR.objects.all()
+    serializer_class = BMSAPISerializer
+    permission_classes = [IsAuthenticated]
 
-        # Apply energy optimization logic to the data
-        optimized_df = optimize_energy(df.copy())
+    def post(self, request):
+        # Get the data from the request
+        data = request.data
+        bms_api_url = data.get('bms_api_url')
+        try:
+            bms_api = BMSSENSOR.objects.get(bms_api_url=bms_api_url)
+        except BMSSENSOR.DoesNotExist:
+            serializer = self.serializer_class(data=data)
+            if serializer.is_valid():
+                serializer.save()
+                Response({'message': 'BMS Connected'})
+                return redirect('bsm-lighting-optimization', request.user.id)
+            else:
+                return Response({'message': 'Connection fail!'})
+        else:
+            serializer = self.serializer_class(instance=bms_api, data=data)
+            if serializer.is_valid():
+                serializer.save()
+                Response({'message': 'BMS Updated'})
+                return redirect('bsm-lighting-optimization', request.user.id )
+            else:
+                return Response({'message': 'Update failed!'})
 
-        # Create a line plot to visualize the results
-        plt.plot(df['Date/Time'], optimized_df['General Lighting(W/m2)'], label='Optimized Lighting(W/m2)')
-        plt.plot(df['Date/Time'], optimized_df['Cooling (Electricity)(W/m2)'], label='Optimized HVAC(W/m2)')
-        plt.xlabel('Date/Time')
-        plt.ylabel('Energy Consumption(W/m2)')
-        plt.title('Energy Optimization Results')
-        plt.xticks(rotation=45)
-        plt.legend()
-        
-        # Save the plot to a BytesIO object
-        img = BytesIO()
-        plt.savefig(img, format='png')
-        img.seek(0)
-        img_base64 = base64.b64encode(img.read()).decode()
+        return Response({'message': 'Unknown error occurred'})
 
-        # Pass the plot as a base64-encoded image to the template
-        context = {
-            'plot_image': f'data:image/png;base64,{img_base64}',
-            'data_table': optimized_df.to_html(classes='table table-striped table-bordered table-hover')
-        }
 
-        return render(request, 'index.html', context)
+class CsvOrExcelUploadpiView(generics.GenericAPIView):
+    queryset = CsvOrExcelUpload.objects.all()
+    serializer_class = CsvOrExcelUploadSerializer
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        data = request.data
+        building_name = data.get('building_name')
+        try:
+            csv_upload = CsvOrExcelUpload.objects.get(building_name=building_name)
+        except CsvOrExcelUpload.DoesNotExist:
+            serializer = self.serializer_class(data=data)
+            if serializer.is_valid():
+                serializer.save()
+                Response({'message': 'Upload created'})
+                return redirect('bms-api')
+            else:
+                return Response(serializer.errors, status=400)
+        else:
+            serializer = self.serializer_class(instance=csv_upload, data=data)
+            if serializer.is_valid():
+                serializer.save()
+                Response({'message': 'Upload updated'})
+                return redirect('bms-api')
+            else:
+                return Response(serializer.errors, status=400)
+        return Response({'message': 'Unknown error occurred'})
 
-    else:
-        print("Unsupported file format")
-        return HttpResponse("Unsupported file format")
 
 
 # Sample data structure to represent zones and their occupancy
@@ -180,110 +124,99 @@ zone_data = {
 
 
 
-class BMSApiView(generics.GenericAPIView):
-    queryset = BMSAPI.objects.all()
-    serializer_class = BMSAPISerializer
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        # Get the data from the request
-        data = request.data
-        bms_api_url = data.get('bms_api_url')
-        try:
-            bms_api = BMSAPI.objects.get(bms_api_url=bms_api_url)
-        except BMSAPI.DoesNotExist:
-            serializer = self.serializer_class(data=data)
-            if serializer.is_valid():
-                serializer.save()
-                Response({'message': 'BMS Connected'})
-                return redirect('energy-optimization', request.user.id)
-            else:
-                return Response({'message': 'Connection fail!'})
-        else:
-            serializer = self.serializer_class(instance=bms_api, data=data)
-            if serializer.is_valid():
-                serializer.save()
-                Response({'message': 'BMS Updated'})
-                return redirect('energy-optimization', request.user.id )
-            else:
-                return Response({'message': 'Update failed!'})
-
-        return Response({'message': 'Unknown error occurred'})
-
-
-class CsvOrExcelUploadpiView(generics.GenericAPIView):
-    queryset = CsvOrExcelUpload.objects.all()
-    serializer_class = CsvOrExcelUploadSerializer
-    permission_classes = [IsAuthenticated]
-    def post(self, request):
-        data = request.data
-        building_name = data.get('building_name')
-        try:
-            csv_upload = CsvOrExcelUpload.objects.get(building_name=building_name)
-        except CsvOrExcelUpload.DoesNotExist:
-            serializer = self.serializer_class(data=data)
-            if serializer.is_valid():
-                serializer.save()
-                Response({'message': 'Upload created'})
-                return redirect('energy-optimization', request.user.id)
-            else:
-                return Response(serializer.errors, status=400)
-        else:
-            serializer = self.serializer_class(instance=csv_upload, data=data)
-            if serializer.is_valid():
-                serializer.save()
-                Response({'message': 'Upload updated'})
-                return redirect('energy-optimization', request.user.id)
-            else:
-                return Response(serializer.errors, status=400)
-        return Response({'message': 'Unknown error occurred'})
-
-
-
-def connect_to_bms(office_data, request, pk):
+def connect_to_bms(office_data, request, file_data):
     try:
-        BMS_API_URL = BMSAPI.objects.get(id=pk, user=request.user)
-        response = requests.get(BMS_API_URL.bms_api_url)
-        response.raise_for_status()
-        bms_data = response.json()
-        
-        # Update office_data with BMS data
-        for key, value in bms_data.items():
-            office_data[key] = value
+        # Get BMS sensor data based on user and timestamp
+        bms_sensor = BMSSENSOR.objects.get(user=request.user, timestamp=file_data.timestamp)
+        bms_data = {
+            'energy_level': bms_sensor.energy_level,
+            'temperature': bms_sensor.temperature
+        }
 
-        return office_data
-    except BMSAPI.DoesNotExist:
-        # Handle the case where the BMSAPI with the specified ID does not exist
-        print("BMSAPI does not exist.")
-    except requests.exceptions.RequestException as e:
-        # Handle any request-related errors
-        print(f"Request error: {str(e)}")
+        # Update office_data with BMS data
+        office_data.update(bms_data)
+
+    except BMSSENSOR.DoesNotExist:
+        # Handle the case where the BMSSENSOR with the specified user and timestamp does not exist
+        print("BMSSENSOR does not exist.")
     except Exception as e:
         # Handle any other unexpected exceptions
         print(f"An error occurred: {str(e)}")
 
-    # Return the original office_data (unchanged) or handle errors as needed
+    # Return the updated office_data
     return office_data
 
-
-def optimize_energy_bms(data):
+def optimize_energy_ai(data, cost_per_unit_lighting, cost_per_unit_hvac, cost_per_unit_power_outlet):
     for zone, columns in zone_data.items():
         occupancy_column = columns['occupancy_column']
         lighting_column = columns['lighting_column']
         power_outlet_column = columns['power_outlet_column']
         hvac_column = columns['hvac_column']
 
-        # Example: Turn off lights if no occupancy
-        data[lighting_column] = data.apply(lambda row: 0 if row[occupancy_column] == 0 else row[lighting_column], axis=1)
-
-        # Example: Adjust HVAC based on room temperature
-        data[hvac_column] = data.apply(lambda row: row[hvac_column] - 10 if row['Air Temperature(°C)'] > 25 else row[hvac_column], axis=1)
-
-        # Example: Control power outlets based on occupancy
-        data[power_outlet_column] = data.apply(lambda row: 0 if row[occupancy_column] == 0 else row[power_outlet_column], axis=1)
+        data = adjust_lighting(data, occupancy_column, lighting_column, cost_per_unit_lighting)
+        data = adjust_hvac(data, hvac_column, cost_per_unit_hvac)
+        data = adjust_power_outlets(data, occupancy_column, power_outlet_column, cost_per_unit_power_outlet)
 
     return data
 
+def adjust_lighting(data, occupancy_column, lighting_column, cost_per_unit_lighting):
+    # Example: Adjust lighting based on occupancy
+    data[lighting_column] = data.apply(lambda row: adjust_brightness(row[occupancy_column], row[lighting_column], cost_per_unit_lighting), axis=1)
+    return data
+
+def adjust_brightness(occupancy, current_lighting, cost_per_unit_lighting):
+    # Simple AI logic: Reduce lighting if no occupancy, increase if occupancy
+    if occupancy == 0:
+        return current_lighting - 10 * cost_per_unit_lighting
+    else:
+        return current_lighting + 10 * cost_per_unit_lighting
+
+def adjust_hvac(data, hvac_column, cost_per_unit_hvac):
+    # Example: Adjust HVAC based on room temperature
+    data[hvac_column] = data.apply(lambda row: adjust_temperature(row['Air Temperature(°C)'], row[hvac_column], cost_per_unit_hvac), axis=1)
+    return data
+
+def adjust_temperature(temperature, current_hvac, cost_per_unit_hvac):
+    # Simple AI logic: Decrease HVAC if too warm, increase if too cold
+    if temperature > 25:
+        return current_hvac - 10 * cost_per_unit_hvac
+    elif temperature < 20:
+        return current_hvac + 10 * cost_per_unit_hvac
+    else:
+        return current_hvac
+
+def adjust_power_outlets(data, occupancy_column, power_outlet_column, cost_per_unit_power_outlet):
+    # Example: Control power outlets based on occupancy
+    data[power_outlet_column] = data.apply(lambda row: turn_off_outlets(row[occupancy_column], row[power_outlet_column], cost_per_unit_power_outlet), axis=1)
+    return data
+
+def turn_off_outlets(occupancy, current_power_outlet, cost_per_unit_power_outlet):
+    # Simple AI logic: Turn off power outlets if no occupancy
+    if occupancy == 0:
+        return 0
+    else:
+        return current_power_outlet
+
+def calculate_energy_cost(data):
+    # Calculate energy cost for each zone based on the adjusted data
+    for zone, columns in zone_data.items():
+        lighting_column = columns['lighting_column']
+        power_outlet_column = columns['power_outlet_column']
+        hvac_column = columns['hvac_column']
+
+        data[f'{zone}_cost'] = (
+            data[lighting_column] +
+            data[power_outlet_column] +
+            data[hvac_column]
+        )
+
+    return data
+
+def calculate_cost_per_unit(data, column_name):
+    # Calculate cost per unit for a given column (e.g., 'General Lighting(W/m2)')
+    total_cost = data[column_name].sum()
+    total_energy = data[column_name].count()
+    return total_cost / total_energy if total_energy != 0 else 0.0
 
 @login_required
 def bms_optimization(request, pk):
@@ -291,10 +224,21 @@ def bms_optimization(request, pk):
     file_data = CsvOrExcelUpload.objects.get(id=pk, user=user)
     if file_data.upload_file.name.endswith(('.csv', '.xls', '.xlsx')):
         df = pd.read_csv(file_data.upload_file) if file_data.upload_file.name.endswith('.csv') else pd.read_excel(file_data.upload_file)
+
+        # Calculate COST_PER_UNIT_LIGHTING, COST_PER_UNIT_HVAC, and COST_PER_UNIT_POWER_OUTLET
+        cost_per_unit_lighting = calculate_cost_per_unit(df, 'General Lighting(W/m2)')
+        cost_per_unit_hvac = calculate_cost_per_unit(df, 'Cooling (Electricity)(W/m2)')
+        cost_per_unit_power_outlet = calculate_cost_per_unit(df, 'System Pumps(W/m2)')
+
         # Connect to the BMS to get power distribution information
-        df = connect_to_bms(df, request, pk)
-        # Apply energy optimization logic to the data
-        optimized_df = optimize_energy_bms(df.copy())
+        df = connect_to_bms(df, request, file_data)
+        # Apply AI-based energy optimization logic to the data
+        optimized_df = optimize_energy_ai(df.copy(), cost_per_unit_lighting, cost_per_unit_hvac, cost_per_unit_power_outlet)
+        # Calculate energy cost for each zone
+        optimized_df = calculate_energy_cost(optimized_df)
+
+        # Calculate total cost for all zones
+        total_cost = optimized_df[['zone1_cost', 'zone2_cost']].sum().sum()  # Adjust column names if needed
 
         # Create a line plot to visualize the results
         plt.plot(df['Date/Time'], optimized_df['General Lighting(W/m2)'], label='Optimized Lighting(W/m2)')
@@ -313,192 +257,390 @@ def bms_optimization(request, pk):
         # Pass the plot as a base64-encoded image to the template
         context = {
             'plot_image': f'data:image/png;base64,{img_base64}',
-            'data_table': optimized_df.to_html(classes='table table-striped table-bordered table-hover')
+            'data_table': optimized_df.to_html(classes='table table-striped table-bordered table-hover'),
+            'total_cost': total_cost
         }
 
         return render(request, 'bms_optimization.html', context)
     else:
         print("Unsupported file format")
         return HttpResponse("Unsupported file format")
-    
-# @login_required
-# def monitor_energy(request):
-#     # Load the historical combined data Excel file
-#     file_data = CsvOrExcelUpload.objects.get(id=1)
-#     if file_data.upload_file.name.endswith('.csv'):
-#         df = pd.read_csv(file_data.upload_file)
-
-#     elif file_data.upload_file.name.endswith(('.xls', '.xlsx')):
-#         df = pd.read_excel(file_data.upload_file)
-#     else:
-#         print("Unsupported file format")
-
-#     # Assuming the data is sorted by timestamp in descending order, get the latest data point
-#     latest_data = df.iloc[0]
-
-#     # Train an isolation forest model on your historical data
-#     X_train = df[['temperature', 'humidity', 'occupancy', 'energy_cost']]
-#     isolation_forest = IsolationForest(contamination=0.05)  # You can adjust the contamination parameter
-#     isolation_forest.fit(X_train)
-
-#     # Retrieve the latest real-time data from the Excel file
-#     current_data = {
-#         'timestamp': latest_data['timestamp'],
-#         'temperature': latest_data['temperature'],
-#         'humidity': latest_data['humidity'],
-#         'occupancy': latest_data['occupancy'],
-#         'energy_cost': latest_data['energy_cost'],
-#     }
-
-#     # Predict whether the current data is an anomaly
-#     X_current = np.array([[current_data['temperature'], current_data['humidity'], current_data['occupancy'], current_data['energy_cost']]])
-#     is_anomaly = isolation_forest.predict(X_current)
-    
-#     # Convert is_anomaly to a string
-#     is_anomaly = str(int(is_anomaly[0]))  # Convert to a string after converting to an integer
-
-#     # Generate a graph for the latest data
-#     plt.figure(figsize=(10, 6))
-#     plt.plot([current_data['timestamp']], [latest_data['energy_consumption']], marker='o', linestyle='-', color='b', label=f'Energy Consumption')
-#     plt.title('Real-Time Energy Consumption')
-#     plt.xlabel('Timestamp')
-#     plt.ylabel('Energy Consumption')
-#     plt.xticks(rotation=45)
-#     plt.grid(True)
-#     plt.legend()
-
-#     # Save the graph to a BytesIO object
-#     buffer = io.BytesIO()
-#     plt.savefig(buffer, format='png')
-#     buffer.seek(0)
-#     plot_data = base64.b64encode(buffer.read()).decode()
-#     buffer.close()
-
-#     # Create a context dictionary with the data to pass to the template
-#     context = {
-#         'timestamp': current_data['timestamp'].strftime('%Y-%m-%d %H:%M:%S'),
-#         'is_anomaly': is_anomaly, 
-#         'data': current_data,
-#         'graph_data': plot_data,
-#     }
-    
-#     return render(request, 'monitor_energy.html')
 
 
-# @login_required
-# def energy_optimization(request):
-#     df = pd.read_excel('veraai.xlsx')
-
-#     features = ['temperature', 'humidity', 'occupancy', 'energy_cost']
-
-#     scaler = StandardScaler()
-#     X = scaler.fit_transform(df[features])
-
-#     pca = PCA(n_components=2)
-#     X_pca = pca.fit_transform(X)
-#     num_clusters = 3  
-#     kmeans = KMeans(n_clusters=num_clusters, random_state=42)
-#     df['cluster'] = kmeans.fit_predict(X_pca)
-#     recommendations = []
-
-#     for cluster_id in range(num_clusters):
-#         cluster_data = df[df['cluster'] == cluster_id]
-#         avg_energy_cost = cluster_data['energy_cost'].mean()
-#         recommendation = f"Cluster {cluster_id + 1}: Adjust HVAC settings or lighting schedules to optimize energy usage. "
-#         recommendation += f"Average Energy Cost: ${avg_energy_cost:.2f}"
-#         recommendations.append(recommendation)
-
-#     current_occupancy = "Occupied"  
-#     system_status = "Optimized" if current_occupancy == "Occupied" else "Optimizing"
-#     plt.figure(figsize=(10, 6))
-#     plt.bar(range(num_clusters), [cluster_data['energy_cost'].mean() for cluster_id, cluster_data in df.groupby('cluster')])
-#     plt.xticks(range(num_clusters), [f'Cluster {cluster_id + 1}' for cluster_id in range(num_clusters)])
-#     plt.xlabel('Cluster')
-#     plt.ylabel('Average Energy Cost')
-#     plt.title('Energy Cost by Cluster')
-#     buffer = BytesIO()
-#     plt.savefig(buffer, format='png')
-#     buffer.seek(0)
-#     plot_data = base64.b64encode(buffer.read()).decode()
-#     buffer.close()
-
-#     context = {
-#         'recommendations': recommendations,
-#         'current_occupancy': current_occupancy,
-#         'system_status': system_status,
-#         'plot_data': plot_data,
-#     }
-
-#     return render(request, 'energy_optimization.html')
-
-# @login_required
-# def demand_response(request):
-#     df = pd.read_excel('veraai.xlsx')
-#     df['timestamp'] = pd.to_datetime(df['timestamp'])
-#     peak_demand_hours = [16, 17, 18]  
-#     current_hour = datetime.now().hour
-#     is_peak_demand = current_hour in peak_demand_hours
-#     if is_peak_demand:
-#         message = f"It's a peak demand period. The AI is automatically reducing energy consumption."
-#         action_message = "Implement energy reduction actions here."
-#     else:
-#         message = f"It's not a peak demand period. No action is required."
-#         action_message = "No energy reduction actions are needed at this time."
-#     plt.figure(figsize=(10, 6))
-#     plt.plot(df['timestamp'], df['energy_consumption'], marker='o', linestyle='-')
-#     plt.xlabel('Timestamp')
-#     plt.ylabel('Energy Consumption')
-#     plt.title('Historical Energy Consumption')
-#     buffer = BytesIO()
-#     plt.savefig(buffer, format='png')
-#     buffer.seek(0)
-#     plot_data = base64.b64encode(buffer.read()).decode()
-#     buffer.close()
-
-#     context = {
-#         'is_peak_demand': is_peak_demand,
-#         'current_hour': current_hour,
-#         'message': message,
-#         'action_message': action_message,
-#         'plot_data': plot_data,
-#     }
-
-#     return render(request, 'demand_response.html')
 
 
+
+
+
+def optimize_lighting_based_on_sensor(data, sensor_data):
+    for index, row in data.iterrows():
+        timestamp = row['Date/Time']
+        sensor_entry = sensor_data.get(timestamp)
+        if sensor_entry is not None:
+            energy_level = sensor_entry.energy_level
+            temperature = sensor_entry.temperature
+
+            # Adjust lighting energy based on energy level and temperature (modify as needed)
+            lighting_energy = row['General Lighting(W/m2)']
+            lighting_energy *= energy_level  # Adjust based on energy level
+            if temperature > 25:
+                lighting_energy *= 0.9  # Reduce lighting energy if temperature is high
+
+            data.at[index, 'General Lighting(W/m2)'] = lighting_energy
+
+    return data
+
+def calculate_daily_energy_and_cost(data, cost_per_unit):
+    data['Date'] = pd.to_datetime(data['Date/Time']).dt.date
+    daily_energy = data.groupby('Date')['General Lighting(W/m2)'].sum()
+    daily_cost = daily_energy * cost_per_unit
+    return daily_energy, daily_cost
+
+def lighting_optimization(request, pk):
+    file_data = CsvOrExcelUpload.objects.get(id=pk)
+    cost_per_unit = 0.1  # Replace with the actual cost per unit of energy
+
+    if file_data.upload_file.name.endswith(('.csv', '.xls', '.xlsx')):
+        df = pd.read_csv(file_data.upload_file) if file_data.upload_file.name.endswith('.csv') else pd.read_excel(file_data.upload_file)
+
+        # Fetch sensor data from the BMSSENSOR model
+        sensor_data = BMSSENSOR.objects.filter(timestamp__in=df['Date/Time']).values('timestamp', 'energy_level', 'temperature')
+        sensor_data = {entry['timestamp']: entry for entry in sensor_data}
+
+        # Create a DataFrame with the same columns as in your file
+        optimized_df = df.copy()
+
+        # Apply the updated lighting optimization logic
+        optimized_df = optimize_lighting_based_on_sensor(optimized_df, sensor_data)
+
+        # Calculate daily energy consumption and cost
+        daily_energy, daily_cost = calculate_daily_energy_and_cost(optimized_df, cost_per_unit)
+
+        # Create a daily graph for lighting energy
+        plt.figure(figsize=(12, 6))
+        plt.plot(daily_energy.index, daily_energy, label='Daily Lighting Energy(W/m2)')
+        plt.xlabel('Date')
+        plt.ylabel('Lighting Energy(W/m2)')
+        plt.title('Daily Lighting Energy Optimization Results')
+        plt.xticks(rotation=45)
+        plt.legend()
+
+        # Save the daily graph to a BytesIO object
+        img = BytesIO()
+        plt.savefig(img, format='png')
+        img.seek(0)
+        img_base64 = base64.b64encode(img.read()).decode()
+
+        # Calculate the total cost
+        total_cost = daily_cost.sum()
+
+        # Render the template with data
+        context = {
+            'img_base64': img_base64,
+            'total_cost': total_cost,
+            'optimization_data': optimized_df.to_html(classes='table table-striped table-bordered table-hover'),
+            'is_sensor_connected': True,  # Replace with the actual sensor status
+        }
+        return render(request, 'lighting_optimization.html', context)
+    else:
+        print("Unsupported file format")
+        return HttpResponse("Unsupported file format")
+
+
+
+
+# Sample data structure to represent zones and their occupancy
+zone_data = {
+    'zone1': {
+        'occupancy_column': 'Occupancy(W/m2)',
+        'lighting_column': 'General Lighting(W/m2)',
+        'power_outlet_column': 'System Pumps(W/m2)',
+        'hvac_column': 'Cooling (Electricity)(W/m2)'
+    },
+    'zone2': {
+        'occupancy_column': 'Occupancy(W/m2)',
+        'lighting_column': 'General Lighting(W/m2)',
+        'power_outlet_column': 'System Pumps(W/m2)',
+        'hvac_column': 'Cooling (Electricity)(W/m2)'
+    },
+    # Add more zones as needed
+}
+
+
+def connect_to_bms(office_data, request, file_data):
+    try:
+        # Get BMS sensor data based on user and timestamp
+        bms_sensor = BMSSENSOR.objects.get(user=request.user, timestamp=file_data.timestamp)
+        bms_data = {
+            'energy_level': bms_sensor.energy_level,
+            'temperature': bms_sensor.temperature
+        }
+
+        # Clean column names by stripping leading and trailing spaces
+        df_columns = [col.strip() for col in office_data.columns]
+
+        # Update office_data with BMS data
+        for key, value in bms_data.items():
+            if key in df_columns:
+                office_data[key] = value
+
+    except BMSSENSOR.DoesNotExist:
+        # Handle the case where the BMSSENSOR with the specified user and timestamp does not exist
+        print("BMSSENSOR does not exist.")
+    except Exception as e:
+        # Handle any other unexpected exceptions
+        print(f"An error occurred: {str(e)}")
+
+    # Return the updated office_data
+    return office_data
+
+def optimize_energy_ai(data, cost_per_unit_lighting, cost_per_unit_hvac, cost_per_unit_power_outlet):
+    for zone, columns in zone_data.items():
+        occupancy_column = columns['occupancy_column']
+        lighting_column = columns['lighting_column']
+        power_outlet_column = columns['power_outlet_column']
+        hvac_column = columns['hvac_column']
+
+        data = adjust_lighting(data, occupancy_column, lighting_column, cost_per_unit_lighting)
+        data = adjust_hvac(data, hvac_column, cost_per_unit_hvac)
+        data = adjust_power_outlets(data, occupancy_column, power_outlet_column, cost_per_unit_power_outlet)
+
+    return data
+
+def adjust_lighting(data, occupancy_column, lighting_column, cost_per_unit_lighting):
+    # Example: Adjust lighting based on occupancy
+    data[lighting_column] = data.apply(lambda row: adjust_brightness(row[occupancy_column], row[lighting_column], cost_per_unit_lighting), axis=1)
+    return data
+
+def adjust_brightness(occupancy, current_lighting, cost_per_unit_lighting):
+    # Simple AI logic: Reduce lighting if no occupancy, increase if occupancy
+    if occupancy == 0:
+        return current_lighting - 10 * cost_per_unit_lighting
+    else:
+        return current_lighting + 10 * cost_per_unit_lighting
+
+def adjust_hvac(data, hvac_column, cost_per_unit_hvac):
+    # Example: Adjust HVAC based on room temperature
+    data[hvac_column] = data.apply(lambda row: adjust_temperature(row['Air Temperature(°C)'], row[hvac_column], cost_per_unit_hvac), axis=1)
+    return data
+
+def adjust_temperature(temperature, current_hvac, cost_per_unit_hvac):
+    # Simple AI logic: Decrease HVAC if too warm, increase if too cold
+    if temperature > 25:
+        return current_hvac - 10 * cost_per_unit_hvac
+    elif temperature < 20:
+        return current_hvac + 10 * cost_per_unit_hvac
+    else:
+        return current_hvac
+
+def adjust_power_outlets(data, occupancy_column, power_outlet_column, cost_per_unit_power_outlet):
+    # Example: Control power outlets based on occupancy
+    data[power_outlet_column] = data.apply(lambda row: turn_off_outlets(row[occupancy_column], row[power_outlet_column], cost_per_unit_power_outlet), axis=1)
+    return data
+
+def turn_off_outlets(occupancy, current_power_outlet, cost_per_unit_power_outlet):
+    # Simple AI logic: Turn off power outlets if no occupancy
+    if occupancy == 0:
+        return 0
+    else:
+        return current_power_outlet
+
+def calculate_energy_cost(data):
+    # Calculate energy cost for each zone based on the adjusted data
+    for zone, columns in zone_data.items():
+        lighting_column = columns['lighting_column']
+        power_outlet_column = columns['power_outlet_column']
+        hvac_column = columns['hvac_column']
+
+        data[f'{zone}_cost'] = (
+            data[lighting_column] +
+            data[power_outlet_column] +
+            data[hvac_column]
+        )
+
+    return data
+
+def calculate_cost_per_unit(data, column_name):
+    # Calculate cost per unit for a given column (e.g., 'General Lighting(W/m2)')
+    total_cost = data[column_name].sum()
+    total_energy = data[column_name].count()
+    return total_cost / total_energy if total_energy != 0 else 0.0
+
+@login_required
+def bms_optimization(request, pk):
+    user = request.user
+    file_data = CsvOrExcelUpload.objects.get(id=pk, user=user)
+    if file_data.upload_file.name.endswith(('.csv', '.xls', '.xlsx')):
+        df = pd.read_csv(file_data.upload_file) if file_data.upload_file.name.endswith('.csv') else pd.read_excel(file_data.upload_file)
+
+        # Calculate COST_PER_UNIT_LIGHTING, COST_PER_UNIT_HVAC, and COST_PER_UNIT_POWER_OUTLET
+        cost_per_unit_lighting = calculate_cost_per_unit(df, 'General Lighting(W/m2)')
+        cost_per_unit_hvac = calculate_cost_per_unit(df, 'Cooling (Electricity)(W/m2)')
+        cost_per_unit_power_outlet = calculate_cost_per_unit(df, 'System Pumps(W/m2)')
+
+        # Connect to the BMS to get power distribution information
+        df = connect_to_bms(df, request, file_data)
+        # Apply AI-based energy optimization logic to the data
+        optimized_df = optimize_energy_ai(df.copy(), cost_per_unit_lighting, cost_per_unit_hvac, cost_per_unit_power_outlet)
+        # Calculate energy cost for each zone
+        optimized_df = calculate_energy_cost(optimized_df)
+
+        # Calculate total cost for all zones
+        total_cost = optimized_df[['zone1_cost', 'zone2_cost']].sum().sum()  # Adjust column names if needed
+
+        # Create a line plot to visualize the results
+        plt.plot(df['Date/Time'], optimized_df['General Lighting(W/m2)'], label='Optimized Lighting(W/m2)')
+        plt.xlabel('Date/Time')
+        plt.ylabel('Energy Consumption(W/m2)')
+        plt.title('Energy Optimization Results')
+        plt.xticks(rotation=45)
+        plt.legend()
+
+        # Save the plot to a BytesIO object
+        img = BytesIO()
+        plt.savefig(img, format='png')
+        img.seek(0)
+        img_base64 = base64.b64encode(img.read()).decode()
+
+        # Pass the plot as a base64-encoded image to the template
+        context = {
+            'plot_image': f'data:image/png;base64,{img_base64}',
+            'data_table': optimized_df.to_html(classes='table table-striped table-bordered table-hover'),
+            'total_cost': total_cost
+        }
+
+        return render(request, 'bms_optimization.html', context)
+    else:
+        print("Unsupported file format")
+        return HttpResponse("Unsupported file format")
+
+
+# making energy predictions 
 
 
 
 @login_required
-def adjust_hvac(request):
-    historical_data = pd.read_excel('veraai.xlsx')
-    weather_forecast = {
-        'temperature': 28, 
-        'humidity': 60,
-    }
-    hvac_adjustment = "Optimize"
-    if weather_forecast['temperature'] > 30:
-        hvac_adjustment = "Cooling Mode"
-    elif weather_forecast['temperature'] < 10:
-        hvac_adjustment = "Heating Mode"
-    plt.figure(figsize=(10, 6))
-    plt.plot(historical_data['timestamp'], historical_data['temperature'], label='Temperature (°C)', color='blue')
-    plt.axhline(y=weather_forecast['temperature'], color='red', linestyle='--', label='Weather Forecast')
-    plt.title('HVAC Adjustment Based on Weather Forecast')
-    plt.xlabel('Timestamp')
-    plt.ylabel('Temperature (°C)')
-    plt.xticks(rotation=45)
-    plt.grid(True)
-    plt.legend()
-    buffer = BytesIO()
-    plt.savefig(buffer, format='png')
-    buffer.seek(0)
-    plot_data = base64.b64encode(buffer.read()).decode()
-    buffer.close()
-    historical_data['hvac_adjustment'] = hvac_adjustment
-    context = {
-        'hvac_adjustment': hvac_adjustment,
-        'plot_data': plot_data,
-        'historical_data': historical_data.iterrows(),
-    }
-    return render(request, 'adjust_hvac.html')
+def energy_prediction(request, pk):
+    user = request.user
+    file_data = CsvOrExcelUpload.objects.get(id=pk, user=user)
+
+    if request.method == 'POST':
+        form = FuturePredictionForm(request.POST)
+        if form.is_valid():
+            future_date = form.cleaned_data['future_date']
+            future_time = form.cleaned_data['future_time']
+            future_datetime = datetime.combine(future_date, future_time)
+            if file_data.upload_file.name.endswith(('.csv', '.xls', '.xlsx')):
+                df = pd.read_csv(file_data.upload_file) if file_data.upload_file.name.endswith('.csv') else pd.read_excel(file_data.upload_file)
+
+                # Calculate COST_PER_UNIT_LIGHTING, COST_PER_UNIT_HVAC, and COST_PER_UNIT_POWER_OUTLET
+                cost_per_unit_lighting = calculate_cost_per_unit(df, 'General Lighting(W/m2)')
+                cost_per_unit_hvac = calculate_cost_per_unit(df, 'Cooling (Electricity)(W/m2)')
+                cost_per_unit_power_outlet = calculate_cost_per_unit(df, 'System Pumps(W/m2)')
+
+                # Connect to the BMS to get power distribution information
+                df = connect_to_bms(df, request, file_data)
+
+                # Create a prediction DataFrame for the selected future date and time
+                future_prediction_df = create_future_prediction_df(df, future_datetime)
+
+                # Apply AI-based energy optimization logic to the future prediction data
+                optimized_future_df = optimize_energy_ai(future_prediction_df.copy(), cost_per_unit_lighting, cost_per_unit_hvac, cost_per_unit_power_outlet)
+
+                # Calculate energy cost for each zone in the future
+                optimized_future_df = calculate_energy_cost(optimized_future_df)
+
+                # Calculate total cost for all zones in the future
+                total_future_cost = optimized_future_df[['zone1_cost', 'zone2_cost']].sum().sum()  # Adjust column names if needed
+
+                # Create a line plot to visualize the future prediction
+                plt.plot(future_prediction_df['Date/Time'], optimized_future_df['General Lighting(W/m2)'], label='Optimized Lighting(W/m2)')
+                plt.xlabel('Date/Time')
+                plt.ylabel('Energy Consumption(W/m2)')
+                plt.title('Future Energy Cost Prediction')
+                plt.xticks(rotation=45)
+                plt.legend()
+
+                # Save the plot to a BytesIO object
+                img = BytesIO()
+                plt.savefig(img, format='png')
+                img.seek(0)
+                img_base64 = base64.b64encode(img.read()).decode()
+
+                # Pass the plot as a base64-encoded image to the template
+                context = {
+                    'form': form,
+                    'plot_image': f'data:image/png;base64,{img_base64}',
+                    'data_table': optimized_future_df.to_html(classes='table table-striped table-bordered table-hover'),
+                    'total_cost': total_future_cost
+                }
+
+                return render(request, 'energy_prediction.html', context)
+    else:
+        form = FuturePredictionForm()
+
+    context = {'form': form}
+    return render(request, 'energy_prediction.html', context)
+
+def calculate_cost_per_unit(data, column_name):
+    # Calculate cost per unit for a given column (e.g., 'General Lighting(W/m2)')
+    total_cost = data[column_name].sum()
+    total_energy = data[column_name].count()
+    return total_cost / total_energy if total_energy != 0 else 0.0
+
+def connect_to_bms(data, request, file_data):
+    # Placeholder logic to simulate BMS sensor data retrieval
+    # You should replace this with actual data retrieval logic
+    try:
+        # Get BMS sensor data based on user and timestamp (placeholder)
+        bms_sensor = BMSSENSOR.objects.get(user=request.user, timestamp=file_data.timestamp)
+        bms_data = {
+            'energy_level': bms_sensor.energy_level,
+            'temperature': bms_sensor.temperature
+        }
+
+        # Update office_data with BMS data (placeholder)
+        data.update(bms_data)
+
+    except BMSSENSOR.DoesNotExist:
+        # Handle the case where the BMSSENSOR with the specified user and timestamp does not exist
+        print("BMSSENSOR does not exist.")
+    except Exception as e:
+        # Handle any other unexpected exceptions
+        print(f"An error occurred: {str(e)}")
+
+    return data
+
+def optimize_energy_ai(data, cost_per_unit_lighting, cost_per_unit_hvac, cost_per_unit_power_outlet):
+    # Placeholder logic for energy optimization (adjust as needed)
+    for zone, columns in zone_data.items():
+        occupancy_column = columns['occupancy_column']
+        lighting_column = columns['lighting_column']
+        power_outlet_column = columns['power_outlet_column']
+        hvac_column = columns['hvac_column']
+
+        data = adjust_lighting(data, occupancy_column, lighting_column, cost_per_unit_lighting)
+        data = adjust_hvac(data, hvac_column, cost_per_unit_hvac)
+        data = adjust_power_outlets(data, occupancy_column, power_outlet_column, cost_per_unit_power_outlet)
+
+    return data
+
+def calculate_energy_cost(data):
+    # Placeholder logic to calculate energy cost for each zone (adjust as needed)
+    for zone, columns in zone_data.items():
+        lighting_column = columns['lighting_column']
+        power_outlet_column = columns['power_outlet_column']
+        hvac_column = columns['hvac_column']
+
+        data[f'{zone}_cost'] = (
+            data[lighting_column] +
+            data[power_outlet_column] +
+            data[hvac_column]
+        )
+
+    return data
+
+def create_future_prediction_df(original_df, future_datetime):
+    # Create a prediction DataFrame for the selected future date and time
+    future_df = pd.DataFrame({'Date/Time': [future_datetime]})
+    return future_df

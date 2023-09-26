@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Energy Cost Prediction</title>
+</head>
+<body>
+    <h1>Energy Cost Prediction</h1>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Predict Energy Cost</button>
+    </form>
+
+    <br>
+
+    {% if plot_image %}
+        <img src="{{ plot_image }}" alt="Energy Cost Prediction Plot">
+    {% endif %}
+
+    {% if data_table %}
+        <h2>Energy Cost Data</h2>
+        {{ data_table|safe }}
+        <p>Total Cost: ${{ total_cost }}</p>
+    {% endif %}
+</body>
+</html>

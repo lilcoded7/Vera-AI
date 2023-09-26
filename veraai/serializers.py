@@ -4,7 +4,7 @@ from .models import *
 
 class BMSAPISerializer(serializers.ModelSerializer):
     class Meta:
-        model = BMSAPI
+        model = BMSSENSOR
         fields = '__all__' 
 
 

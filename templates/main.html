@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Daily Light Optimization Results</title>
+</head>
+<body>
+    <h1>Daily Light Optimization Results</h1>
+
+    <!-- Display the daily light optimization graph -->
+    <img src="data:image/png;base64, {{ img_base64 }}" alt="Daily Light Optimization Graph">
+
+    <h2>Total Cost: ${{ total_cost }}</h2>
+
+    <h2>Optimization Data</h2>
+    <!-- Display the optimization data table -->
+    <div>
+        {{ optimization_data | safe }}
+    </div>
+
+    {% if is_sensor_connected %}
+        <p>Sensor is connected</p>
+    {% else %}
+        <p>Sensor is not connected</p>
+    {% endif %}
+
+</body>
+</html>

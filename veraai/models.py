@@ -12,12 +12,14 @@ class CsvOrExcelUpload(models.Model):
         return self.building_name
 
 
-class BMSAPI(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    bms_api_url = models.CharField(max_length=255)
+class BMSSENSOR(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)  # Associate the sensor with a user, if needed
+    timestamp = models.DateTimeField()
+    energy_level = models.FloatField()  # Energy level of the sensor
+    temperature = models.FloatField()  # Temperature reading from the sensor
 
     def __str__(self):
-        return self.bms_api_url
+        return f'BMSSENSOR at {self.timestamp}'
 
 class EnergyData(models.Model):
     date_time = models.DateTimeField()
