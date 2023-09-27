@@ -21,6 +21,7 @@ def register(request):
 
     return render(request, 'auths/register.html', {'form': form})
 
+
 def login_view(request):
     form = LoginForm()
     if request.method == 'POST':

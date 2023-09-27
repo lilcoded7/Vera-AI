@@ -28,7 +28,7 @@ from .forms import EnergyPredictionForm
 class VINSINCBUILDINGDATAAPIView(generics.CreateAPIView):
     queryset = VINSINCBUILDINGDATA.objects.all()
     serializer_class = VINSINCBUILDINGDATASerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def create(self, request, *args, **kwargs):
         data = request.data
@@ -388,6 +388,7 @@ class BuildingAPIView(generics.CreateAPIView):
 #     else:
 #         print("Unsupported file format")
 #         return HttpResponse("Unsupported file format")
+
 
 # # Sample data structure to represent zones and their occupancy
 # zone_data = {
