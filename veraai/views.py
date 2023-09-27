@@ -82,6 +82,7 @@ class BuildingAPIView(generics.CreateAPIView):
 
 
 
+
 # def optimize_energy(data):
 #     # Simplified energy optimization logic (e.g., control lighting, HVAC, and power outlets)
 #     occupancy_column = 'Occupancy(W/m2)'
