@@ -502,7 +502,7 @@ def bms_optimization(request, pk):
         print("Unsupported file format")
         return HttpResponse("Unsupported file format")
 
-
+@login_required
 def energy_prediction(request):
     form = EnergyPredictionForm(request.POST or None)
     predicted_energy = None
