@@ -2,14 +2,14 @@ from rest_framework import serializers
 from .models import *
 
 
-class BMSAPISerializer(serializers.ModelSerializer):
+class VINSINCBUILDINGDATASerializer(serializers.ModelSerializer):
     class Meta:
-        model = BMSSENSOR
+        model = VINSINCBUILDINGDATA
         fields = '__all__' 
 
 
 
-class CsvOrExcelUploadSerializer(serializers.ModelSerializer):
+class BuildingSerializer(serializers.ModelSerializer):
     class Meta:
-        model = CsvOrExcelUpload
+        model = Building
         fields = '__all__' 
