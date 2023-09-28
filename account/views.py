@@ -33,7 +33,7 @@ def login_view(request):
             if user is not None:
                 print('-0-0-0-0-0-0-0-0-0-')
                 login(request, user)
-                return redirect('connect/bms/api/')
+                return redirect('bms-data-api')
             else:
                 messages.error(request, 'Invalid credentials, login failed!')
         else:

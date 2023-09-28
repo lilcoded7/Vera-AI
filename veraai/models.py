@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 
 
 class VINSINCBUILDINGDATA(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     timestamp = models.DateTimeField()
     mech_vent_nat_vent_infiltration = models.DecimalField(max_digits=10, decimal_places=2)
     external_infiltration = models.DecimalField(max_digits=10, decimal_places=2)
