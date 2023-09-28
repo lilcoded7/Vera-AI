@@ -29,11 +29,10 @@ class VINSINCBUILDINGDATA(models.Model):
 
 
     def __str__(self):
-        return self.timestamp
+        return f"{self.user.username} - {self.timestamp}"
 
 
 class Building(models.Model):
-    building_data = models.ForeignKey(VINSINCBUILDINGDATA, on_delete=models.CASCADE, null=True, blank=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
 

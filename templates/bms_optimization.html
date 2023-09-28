@@ -92,46 +92,33 @@
     </div>
     <div class="menu is-menu-main">
       <p class="menu-label">General</p>
-      <ul class="menu-list">
-        
-        <li>
-            <a href="##" class="has-icon">
-              <span class="icon"><i class="mdi mdi-help-circle"></i></span>
-              <span class="menu-item-label">Add BMS Data</span>
-            </a>
-          </li>
-      </ul>
+      
       
       <ul class="menu-list">
         
         <li>
-          <a href="{% url 'bms-api' %}" class="has-icon">
+          <a href="{% url 'bms-data-api' %}" class="has-icon">
             <span class="icon"><i class="mdi mdi-help-circle"></i></span>
             <span class="menu-item-label">Connect BMS</span>
           </a>
         </li>
 
         <li>
-          <a href="##" class="has-icon">
+          <a href="{% url 'energy-prediction' %}" class="has-icon">
             <span class="icon"><i class="mdi mdi-help-circle"></i></span>
             <span class="menu-item-label">Energy Prediction</span>
           </a>
         </li>
 
         <li>
-            <a href="##" class="has-icon">
+            <a href="{% url 'bsm-optimization' %}" class="has-icon">
 
               <span class="icon"><i class="mdi mdi-github-circle"></i></span>
               <span class="menu-item-label">BMS Lighting Optimization</span>
             </a>
           </li>
 
-        <li>
-          <a href="##" class="has-icon">
-            <span class="icon"><i class="mdi mdi-github-circle"></i></span>
-            <span class="menu-item-label">BHVAC Adjustment</span>
-          </a>
-        </li>
+        
         
       </ul>
     </div>
@@ -166,7 +153,7 @@
         <div class="card-content">
           <div class="flex items-center justify-between">
             <div class="widget-label">
-                <p><strong>Cost:</strong> ${{total_cost}} </p>
+                <p><strong>Cost:</strong> GH₵{{ energy_cost }} </p>
               
             </div>
             <span class="icon widget-icon text-blue-500"><i class="mdi mdi-cart-outline mdi-48px"></i></span>
@@ -201,7 +188,7 @@
       </header>
       <div class="card-content">
         <div class="chart-area">
-          <img src="{{ plot_image }}" alt="Energy Optimization Graph">
+          <img src="data:image/png;base64,{{ plot }}" alt="Energy Consumption Plot" />
         </div>
       </div>
     </div>

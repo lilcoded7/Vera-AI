@@ -6,17 +6,15 @@
 <body>
     <h1>Energy Optimization Results</h1>
 
-    <!-- Display the energy optimization graph -->
-    <div class="graph-container">
-        <img src="{{ plot_image }}" alt="Energy Optimization Graph">
-    </div>
+    <h2>Optimization Feedback</h2>
+    <p>{{ feedback }}</p>
 
-    <!-- Display the data table -->
-    <h2>Data Table</h2>
-    {% if data_table %}
-        {{ data_table|safe }}
-    {% else %}
-        <p>Data not available.</p>
-    {% endif %}
+    <h2>Total Energy Consumption Cost</h2>
+    <p>Total Cost: ${{ energy_cost }}</p>
+
+    <h2>Energy Consumption Plot</h2>
+    <img src="data:image/png;base64,{{ plot }}" alt="Energy Consumption Plot" />
+
+    <p>Graph showing the energy consumption over time.</p>
 </body>
 </html>
