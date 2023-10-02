@@ -3,8 +3,16 @@ from django.contrib.auth.models import User
 
 
 
-class VINSINCBUILDINGDATA(models.Model):
+class Building(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+
+class VINSINCBUILDINGDATA(models.Model):
+    building = models.ForeignKey(Building, on_delete=models.CASCADE)
     timestamp = models.DateTimeField()
     mech_vent_nat_vent_infiltration = models.DecimalField(max_digits=10, decimal_places=2)
     external_infiltration = models.DecimalField(max_digits=10, decimal_places=2)
@@ -32,10 +40,9 @@ class VINSINCBUILDINGDATA(models.Model):
         return f"{self.user.username} - {self.timestamp}"
 
 
-class Building(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    name = models.CharField(max_length=100)
+class UploadBuildingData(models.Model):
+    building = models.ForeignKey(Building, on_delete=models.CASCADE)
+    upload_file = models.FileField()
 
-
-    def __str__(self):
-        return self.name
+    def __str__(self) -> str:
+        return self.name 

@@ -31,13 +31,6 @@ import io
 
 
 
-import base64
-import requests
-import io
-import datetime
-from decimal import Decimal
-import matplotlib.pyplot as plt
-
 WEATHER_API_KEY = 'your_weather_api_key'  # Replace with your actual weather API key
 
 def energy_optimization(request):
