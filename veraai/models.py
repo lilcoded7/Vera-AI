@@ -37,7 +37,7 @@ class VINSINCBUILDINGDATA(models.Model):
 
 
     def __str__(self):
-        return f"{self.user.username} - {self.timestamp}"
+        return f"{self.building.user.username} - {self.timestamp}"
 
 
 class UploadBuildingData(models.Model):
@@ -45,4 +45,4 @@ class UploadBuildingData(models.Model):
     upload_file = models.FileField()
 
     def __str__(self) -> str:
-        return self.name 
+        return self.building.name 

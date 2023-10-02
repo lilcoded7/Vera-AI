@@ -2,13 +2,10 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('connect/bms/api/', views.VINSINCBUILDINGDATAAPIView.as_view(), name='bms-data-api'),#5
-    path('bms/api/v1/', views.BuildingAPIView.as_view(), name='bms-api'),#5
+    path('connect/bms/api/', views.VINSINCBUILDINGDATACreateUpdateView.as_view(), name='bms-data-api'),#1
+    path('bms/api/v1/', views.BuildingAPIVIew.as_view(), name='register-building'),#2
+    path('upload/file/data/', views.UploadBuildingDataCreateUpdateView.as_view(), name='upload-file-data-api')
 
-
-
-    path('lighting/optimization/', views.energy_optimization, name='bsm-optimization'), #2
-    path('energy/prediction/', views.energy_prediction, name='energy-prediction'),#3
     
 
 ]
