@@ -142,7 +142,7 @@
 <section class="is-hero-bar">
   <div class="flex flex-col md:flex-row items-center justify-between space-y-6 md:space-y-0">
     <h1 class="title">
-      BMS Energy Optimization 
+      Total Energy Consumption
     </h1>
     
   </div>
@@ -154,7 +154,7 @@
         <div class="card-content">
           <div class="flex items-center justify-between">
             <div class="widget-label">
-                <p><strong>Energy Consumption:</strong></p>
+                <p><strong>Initial Total Energy Consumption: {{ initial_total_energy }} W/m2</p></strong></p>
                 
               
             </div>
@@ -193,7 +193,7 @@
       <header class="card-header">
         <p class="card-header-title">
           <span class="icon"><i class="mdi mdi-finance"></i></span>
-          BMS_API Optimization
+          Optimized Total Energy Consumption: {{ optimized_total_energy }} W/m2
         </p>
         <a href="#" class="card-header-icon">
           <span class="icon"><i class="mdi mdi-reload"></i></span>
