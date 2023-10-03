@@ -101,17 +101,31 @@
         </li>
 
         <li>
-          <a href="{% url 'energy-prediction' %}" class="has-icon">
+          <a href="{% url 'upload-file-data-api' %}" class="has-icon">
             <span class="icon"><i class="mdi mdi-help-circle"></i></span>
-            <span class="menu-item-label">Energy Prediction</span>
+            <span class="menu-item-label">Upload BMS EXCEL FILE</span>
           </a>
         </li>
 
         <li>
-            <a href="{% url 'bsm-optimization' %}" class="has-icon">
+          <a href="{% url 'add-bms' %}" class="has-icon">
+            <span class="icon"><i class="mdi mdi-help-circle"></i></span>
+            <span class="menu-item-label">Add BMS</span>
+          </a>
+        </li>
+
+        <li>
+          <a href="{% url 'energy-optimization' %}" class="has-icon">
+            <span class="icon"><i class="mdi mdi-help-circle"></i></span>
+            <span class="menu-item-label">BMS Energy Optimization</span>
+          </a>
+        </li>
+
+        <li>
+            <a href="{% url 'predic-energy' %}" class="has-icon">
 
               <span class="icon"><i class="mdi mdi-github-circle"></i></span>
-              <span class="menu-item-label">BMS Lighting Optimization</span>
+              <span class="menu-item-label">Energy Prediction</span>
             </a>
           </li>
 
@@ -131,6 +145,7 @@
     </h1>
     
   </div>
+  
 </section>
 {% if predicted_energy is not None %}
   <section class="section main-section">
@@ -150,7 +165,7 @@
         <div class="card-content">
           <div class="flex items-center justify-between">
             <div class="widget-label">
-              <p>Total Consumption Cost: GH₵{{ total_cost }}</p>
+              <p>Total Consumption Cost: GH₵{{ optimization_cost }}</p>
             </div>
             <span class="icon widget-icon text-blue-500"><i class="mdi mdi-cart-outline mdi-48px"></i></span>
           </div>
@@ -188,7 +203,7 @@
       <div class="card-content">
         <div class="chart-area">
            
-          <img src="data:image/png;base64,{{ plot }}" alt="Energy Consumption Plot">
+          <img src="data:image/png;base64,{{ image }}" alt="Energy Consumption Graph">
         </div>
       </div>
     </div>
